@@ -16,6 +16,7 @@ export interface SentMessage {
 
 interface AppStore {
   currentUser: { name: string; email: string; avatar: string }
+  setCurrentUserName: (name: string) => void
   toasts: Toast[]
   showToast: (msg: string) => void
   dismissToast: (id: string) => void
@@ -35,10 +36,18 @@ let toastCounter = 0
 
 export const useStore = create<AppStore>((set) => ({
   currentUser: {
-    name: 'Maya Chen',
+    name: '',
     email: 'maya@example.com',
     avatar: 'M',
   },
+  setCurrentUserName: (name: string) =>
+    set((state) => ({
+      currentUser: {
+        ...state.currentUser,
+        name,
+        avatar: name.charAt(0).toUpperCase() || 'M',
+      },
+    })),
   toasts: [],
   showToast: (msg: string) => {
     const id = String(++toastCounter)

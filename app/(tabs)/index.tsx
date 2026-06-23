@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Bell } from 'lucide-react-native'
 import { colors, fonts, shadow } from '../../constants/tokens'
 import { PEOPLE } from '../../store/data'
+import { useStore } from '../../store/useStore'
 import { Avatar } from '../../components/ui/Avatar'
 import { HealthRing } from '../../components/ui/HealthRing'
 import { StatusDot } from '../../components/ui/StatusDot'
@@ -32,8 +33,15 @@ const upcomingDates = [
   { label: "Sofia – Playdate", date: 'Jun 12', emoji: '☕', daysAway: 12 },
 ]
 
+function greeting(name: string) {
+  const hour = new Date().getHours()
+  const time = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  return name ? `${time}, ${name.split(' ')[0]}` : time
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets()
+  const { currentUser } = useStore()
   const reached = 12
   const streak = 7
 
@@ -52,7 +60,7 @@ export default function HomeScreen() {
         >
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
-              <Text style={styles.greeting}>Good morning, Maya</Text>
+              <Text style={styles.greeting}>{greeting(currentUser.name)}</Text>
               <Text style={styles.dateText}>{dateString}</Text>
               <Text style={styles.subheading}>3 people could use a hello today</Text>
             </View>
@@ -64,7 +72,11 @@ export default function HomeScreen() {
                 <Bell size={20} color="#fff" />
                 <View style={styles.bellBadge} />
               </Pressable>
-              <Avatar initial="M" size={40} bg="rgba(255,255,255,0.2)" />
+              <Avatar
+                initial={currentUser.avatar || currentUser.name.charAt(0) || 'M'}
+                size={40}
+                bg="rgba(255,255,255,0.2)"
+              />
             </View>
           </View>
         </LinearGradient>

@@ -35,18 +35,31 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets()
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
-  const { setHasOnboarded } = useStore()
+  const { setHasOnboarded, setCurrentUserName, showToast } = useStore()
 
   const current = STEPS[step]
+  const isLastStep = step === STEPS.length - 1
+
+  const finish = (enteredName: string) => {
+    const trimmed = enteredName.trim()
+    if (trimmed) setCurrentUserName(trimmed)
+    setHasOnboarded(true)
+    router.replace('/(tabs)')
+  }
 
   const handleNext = () => {
-    if (step < STEPS.length - 1) {
+    if (!isLastStep) {
       setStep(step + 1)
-    } else {
-      setHasOnboarded(true)
-      router.replace('/(tabs)')
+      return
     }
+    if (!name.trim()) {
+      showToast('Enter your name to get started')
+      return
+    }
+    finish(name)
   }
+
+  const handleSkip = () => finish('')
 
   return (
     <LinearGradient
@@ -74,6 +87,8 @@ export default function OnboardingScreen() {
             placeholderTextColor="rgba(255,255,255,0.5)"
             style={styles.input}
             autoFocus
+            returnKeyType="done"
+            onSubmitEditing={handleNext}
           />
         )}
       </View>
@@ -86,12 +101,12 @@ export default function OnboardingScreen() {
         ]}
       >
         <Text style={styles.nextBtnText}>
-          {step < STEPS.length - 1 ? 'Continue' : 'Get started'}
+          {isLastStep ? 'Get started' : 'Continue'}
         </Text>
       </Pressable>
 
-      {step < STEPS.length - 1 && (
-        <Pressable onPress={() => router.replace('/(tabs)')} style={styles.skipBtn}>
+      {!isLastStep && (
+        <Pressable onPress={handleSkip} style={styles.skipBtn}>
           <Text style={styles.skipText}>Skip</Text>
         </Pressable>
       )}

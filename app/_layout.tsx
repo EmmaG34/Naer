@@ -18,6 +18,7 @@ import {
 } from '@expo-google-fonts/hanken-grotesk'
 import { ToastContainer } from '../components/ui/Toast'
 import { setupNotificationHandler } from '../utils/notifications'
+import { useStore } from '../store/useStore'
 
 setupNotificationHandler()
 
@@ -27,7 +28,6 @@ function useNotificationDeepLink() {
   const responseListener = useRef<Notifications.EventSubscription | null>(null)
 
   useEffect(() => {
-    // Handle tap when app was already open (foreground/background)
     responseListener.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const personId = response.notification.request.content.data?.personId as
@@ -39,7 +39,6 @@ function useNotificationDeepLink() {
       }
     )
 
-    // Handle tap that cold-started the app
     Notifications.getLastNotificationResponseAsync().then((response) => {
       if (!response) return
       const personId = response.notification.request.content.data?.personId as
@@ -56,9 +55,35 @@ function useNotificationDeepLink() {
   }, [])
 }
 
-export default function RootLayout() {
+function AppNavigator() {
+  const { hasOnboarded } = useStore()
   useNotificationDeepLink()
 
+  useEffect(() => {
+    if (!hasOnboarded) {
+      router.replace('/onboarding')
+    }
+  }, [hasOnboarded])
+
+  return (
+    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+      <Stack.Screen name="tell-naer" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
+      <Stack.Screen name="capture" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
+      <Stack.Screen name="person/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="person/[id]/timeline" options={{ headerShown: false }} />
+      <Stack.Screen name="compose/[id]" options={{ headerShown: false }} />
+      <Stack.Screen name="add-contact" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
+      <Stack.Screen name="health" options={{ headerShown: false }} />
+      <Stack.Screen name="connect-phone" options={{ headerShown: false, presentation: 'modal' }} />
+      <Stack.Screen name="follow-up-schedules" options={{ headerShown: false }} />
+      <Stack.Screen name="privacy" options={{ headerShown: false }} />
+    </Stack>
+  )
+}
+
+export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Newsreader_400Regular,
     Newsreader_400Regular_Italic,
@@ -76,20 +101,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="tell-naer" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
-            <Stack.Screen name="capture" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
-            <Stack.Screen name="person/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="person/[id]/timeline" options={{ headerShown: false }} />
-            <Stack.Screen name="compose/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="add-contact" options={{ headerShown: false, animation: 'slide_from_bottom', presentation: 'modal' }} />
-            <Stack.Screen name="health" options={{ headerShown: false }} />
-            <Stack.Screen name="connect-phone" options={{ headerShown: false, presentation: 'modal' }} />
-            <Stack.Screen name="follow-up-schedules" options={{ headerShown: false }} />
-            <Stack.Screen name="privacy" options={{ headerShown: false }} />
-          </Stack>
+          <AppNavigator />
           <ToastContainer />
         </QueryClientProvider>
       </SafeAreaProvider>
