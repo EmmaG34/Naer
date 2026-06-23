@@ -27,6 +27,8 @@ interface AppStore {
   toggleMute: (id: string) => void
   hasOnboarded: boolean
   setHasOnboarded: (val: boolean) => void
+  notificationsEnabled: boolean
+  setNotificationsEnabled: (val: boolean) => void
 }
 
 let toastCounter = 0
@@ -70,4 +72,6 @@ export const useStore = create<AppStore>((set) => ({
   },
   hasOnboarded: false,
   setHasOnboarded: (val: boolean) => set({ hasOnboarded: val }),
+  notificationsEnabled: false,
+  setNotificationsEnabled: (val: boolean) => set({ notificationsEnabled: val }),
 }))

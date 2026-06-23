@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { View } from 'react-native'
-import { Stack } from 'expo-router'
+import { Stack, router } from 'expo-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import * as Notifications from 'expo-notifications'
 import {
   useFonts,
   Newsreader_400Regular,
@@ -16,10 +17,48 @@ import {
   HankenGrotesk_700Bold,
 } from '@expo-google-fonts/hanken-grotesk'
 import { ToastContainer } from '../components/ui/Toast'
+import { setupNotificationHandler } from '../utils/notifications'
+
+setupNotificationHandler()
 
 const queryClient = new QueryClient()
 
+function useNotificationDeepLink() {
+  const responseListener = useRef<Notifications.EventSubscription | null>(null)
+
+  useEffect(() => {
+    // Handle tap when app was already open (foreground/background)
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        const personId = response.notification.request.content.data?.personId as
+          | string
+          | undefined
+        if (personId) {
+          router.push(`/compose/${personId}`)
+        }
+      }
+    )
+
+    // Handle tap that cold-started the app
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (!response) return
+      const personId = response.notification.request.content.data?.personId as
+        | string
+        | undefined
+      if (personId) {
+        router.push(`/compose/${personId}`)
+      }
+    })
+
+    return () => {
+      responseListener.current?.remove()
+    }
+  }, [])
+}
+
 export default function RootLayout() {
+  useNotificationDeepLink()
+
   const [fontsLoaded] = useFonts({
     Newsreader_400Regular,
     Newsreader_400Regular_Italic,

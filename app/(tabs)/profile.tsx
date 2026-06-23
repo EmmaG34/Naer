@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import React from 'react'
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   Pressable,
+  Alert,
 } from 'react-native'
 import { router } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -14,12 +15,43 @@ import { colors, fonts, shadow } from '../../constants/tokens'
 import { Avatar } from '../../components/ui/Avatar'
 import { Toggle } from '../../components/ui/Toggle'
 import { useStore } from '../../store/useStore'
+import { PEOPLE } from '../../store/data'
+import {
+  requestNotificationPermissions,
+  scheduleDailyNudge,
+  scheduleBirthdayReminders,
+  cancelAllNotifications,
+} from '../../utils/notifications'
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets()
-  const { currentUser } = useStore()
-  const [notifs, setNotifs] = useState(true)
-  const [weeklyDigest, setWeeklyDigest] = useState(true)
+  const { currentUser, notificationsEnabled, setNotificationsEnabled, showToast } = useStore()
+  const [weeklyDigest, setWeeklyDigest] = React.useState(true)
+
+  const handleNotificationsToggle = async (val: boolean) => {
+    if (val) {
+      const granted = await requestNotificationPermissions()
+      if (!granted) {
+        Alert.alert(
+          'Notifications blocked',
+          'To get daily nudges, enable notifications for Naer in your device Settings.',
+          [{ text: 'OK' }]
+        )
+        return
+      }
+      const needsPeople = PEOPLE.filter((p) => p.status === 'needs')
+      const fadingPeople = PEOPLE.filter((p) => p.status === 'fading')
+      const topPerson = needsPeople[0] || fadingPeople[0] || PEOPLE[0]
+      await scheduleDailyNudge(topPerson)
+      await scheduleBirthdayReminders(PEOPLE)
+      setNotificationsEnabled(true)
+      showToast('Daily nudges scheduled for 9am')
+    } else {
+      await cancelAllNotifications()
+      setNotificationsEnabled(false)
+      showToast('Notifications turned off')
+    }
+  }
 
   const stats = [
     { label: 'Friends', value: '5' },
@@ -83,9 +115,14 @@ export default function ProfileScreen() {
             <View style={styles.prefRow}>
               <View style={styles.prefLeft}>
                 <Bell size={18} color={colors.muted} />
-                <Text style={styles.prefLabel}>Notifications</Text>
+                <View>
+                  <Text style={styles.prefLabel}>Notifications</Text>
+                  {notificationsEnabled && (
+                    <Text style={styles.prefSub}>Daily nudge at 9am + birthdays</Text>
+                  )}
+                </View>
               </View>
-              <Toggle value={notifs} onValueChange={setNotifs} />
+              <Toggle value={notificationsEnabled} onValueChange={handleNotificationsToggle} />
             </View>
             <View style={styles.divider} />
             <View style={styles.prefRow}>
@@ -171,6 +208,7 @@ const styles = StyleSheet.create({
   prefRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
   prefLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   prefLabel: { fontFamily: fonts.ui, fontSize: 15, color: colors.ink },
+  prefSub: { fontFamily: fonts.ui, fontSize: 11, color: colors.muted, marginTop: 1 },
   divider: { height: 1, backgroundColor: colors.line, marginHorizontal: 16 },
   healthBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',

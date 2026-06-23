@@ -24,7 +24,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#fb6b5b",
+          "iosDisplayInForeground": true,
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
