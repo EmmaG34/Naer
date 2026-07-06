@@ -38,15 +38,13 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest --watchAll=false",
     "test:watch": "jest",
-    "build:dev": "eas build --profile development",
-    "build:preview": "eas build --profile preview",
-    "build:prod": "eas build --profile production",
-    "submit:ios": "eas submit --platform ios --profile production",
-    "submit:android": "eas submit --platform android --profile production",
+    "build:dev": "eas build --profile development --platform android",
+    "build:preview": "eas build --profile preview --platform android",
+    "build:prod": "eas build --profile production --platform android",
+    "submit": "eas submit --platform android --profile production",
     "update": "eas update --channel production"
   },
   "private": true

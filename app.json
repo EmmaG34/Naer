@@ -10,15 +10,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "naer",
-    "ios": {
-      "supportsTablet": false,
-      "bundleIdentifier": "com.naer.app",
-      "infoPlist": {
-        "NSMicrophoneUsageDescription": "Naer uses the microphone to capture voice notes about your friends.",
-        "NSContactsUsageDescription": "Naer reads your contacts so you can link voice notes to people you know.",
-        "NSCalendarsUsageDescription": "Naer adds follow-up reminders to your calendar."
-      }
-    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#272c5e",
