@@ -14,6 +14,14 @@ export interface SentMessage {
   sentAt: Date
 }
 
+export interface Capture {
+  id: string
+  type: 'voice' | 'text'
+  content: string
+  uri?: string
+  createdAt: Date
+}
+
 interface AppStore {
   currentUser: { name: string; email: string; avatar: string }
   setCurrentUserName: (name: string) => void
@@ -22,6 +30,8 @@ interface AppStore {
   dismissToast: (id: string) => void
   sentLog: SentMessage[]
   addSentMessage: (msg: SentMessage) => void
+  captures: Capture[]
+  addCapture: (capture: Capture) => void
   favorites: string[]
   toggleFavorite: (id: string) => void
   muted: string[]
@@ -33,6 +43,7 @@ interface AppStore {
 }
 
 let toastCounter = 0
+let captureCounter = 0
 
 export const useStore = create<AppStore>((set) => ({
   currentUser: {
@@ -62,6 +73,10 @@ export const useStore = create<AppStore>((set) => ({
   sentLog: [],
   addSentMessage: (msg: SentMessage) => {
     set((state) => ({ sentLog: [msg, ...state.sentLog] }))
+  },
+  captures: [],
+  addCapture: (capture: Capture) => {
+    set((state) => ({ captures: [capture, ...state.captures] }))
   },
   favorites: ['1', '2'],
   toggleFavorite: (id: string) => {

@@ -26,6 +26,12 @@
       "expo-router",
       "expo-font",
       [
+        "expo-av",
+        {
+          "microphonePermission": "Naer uses the microphone to capture voice notes about your friends."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
