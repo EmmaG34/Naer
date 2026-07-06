@@ -1,4 +1,6 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export interface Toast {
   id: string
@@ -81,50 +83,63 @@ const initialState = {
 
 let toastCounter = 0
 
-export const useStore = create<AppStore>((set) => ({
-  ...initialState,
+export const useStore = create<AppStore>()(
+  persist(
+    (set) => ({
+      ...initialState,
 
-  setCurrentUserName: (name) =>
-    set((s) => ({
-      currentUser: { ...s.currentUser, name, avatar: name.charAt(0).toUpperCase() || 'M' },
-    })),
+      setCurrentUserName: (name) =>
+        set((s) => ({
+          currentUser: { ...s.currentUser, name, avatar: name.charAt(0).toUpperCase() || 'M' },
+        })),
 
-  showToast: (msg) => {
-    const id = String(++toastCounter)
-    set((s) => ({ toasts: [...s.toasts, { id, message: msg }] }))
-    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3000)
-  },
-  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-
-  addSentMessage: (msg) => set((s) => ({ sentLog: [msg, ...s.sentLog] })),
-
-  addCapture: (capture) => set((s) => ({ captures: [capture, ...s.captures] })),
-
-  addContactNote: (note) =>
-    set((s) => ({
-      contactNotes: {
-        ...s.contactNotes,
-        [note.personId]: [note, ...(s.contactNotes[note.personId] ?? [])],
+      showToast: (msg) => {
+        const id = String(++toastCounter)
+        set((s) => ({ toasts: [...s.toasts, { id, message: msg }] }))
+        setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3000)
       },
-    })),
+      dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 
-  addFollowUp: (fu) => set((s) => ({ followUps: [fu, ...s.followUps] })),
-  completeFollowUp: (id) =>
-    set((s) => ({ followUps: s.followUps.map((f) => (f.id === id ? { ...f, completed: true } : f)) })),
-  dismissFollowUp: (id) =>
-    set((s) => ({ followUps: s.followUps.filter((f) => f.id !== id) })),
+      addSentMessage: (msg) => set((s) => ({ sentLog: [msg, ...s.sentLog] })),
 
-  toggleFavorite: (id) =>
-    set((s) => ({
-      favorites: s.favorites.includes(id) ? s.favorites.filter((f) => f !== id) : [...s.favorites, id],
-    })),
-  toggleMute: (id) =>
-    set((s) => ({
-      muted: s.muted.includes(id) ? s.muted.filter((m) => m !== id) : [...s.muted, id],
-    })),
+      addCapture: (capture) => set((s) => ({ captures: [capture, ...s.captures] })),
 
-  setHasOnboarded: (val) => set({ hasOnboarded: val }),
-  setNotificationsEnabled: (val) => set({ notificationsEnabled: val }),
-}))
+      addContactNote: (note) =>
+        set((s) => ({
+          contactNotes: {
+            ...s.contactNotes,
+            [note.personId]: [note, ...(s.contactNotes[note.personId] ?? [])],
+          },
+        })),
+
+      addFollowUp: (fu) => set((s) => ({ followUps: [fu, ...s.followUps] })),
+      completeFollowUp: (id) =>
+        set((s) => ({ followUps: s.followUps.map((f) => (f.id === id ? { ...f, completed: true } : f)) })),
+      dismissFollowUp: (id) =>
+        set((s) => ({ followUps: s.followUps.filter((f) => f.id !== id) })),
+
+      toggleFavorite: (id) =>
+        set((s) => ({
+          favorites: s.favorites.includes(id) ? s.favorites.filter((f) => f !== id) : [...s.favorites, id],
+        })),
+      toggleMute: (id) =>
+        set((s) => ({
+          muted: s.muted.includes(id) ? s.muted.filter((m) => m !== id) : [...s.muted, id],
+        })),
+
+      setHasOnboarded: (val) => set({ hasOnboarded: val }),
+      setNotificationsEnabled: (val) => set({ notificationsEnabled: val }),
+    }),
+    {
+      name: 'naer-store',
+      storage: createJSONStorage(() => AsyncStorage),
+      // exclude transient UI state from persistence
+      partialize: (state) => {
+        const { toasts: _toasts, ...persisted } = state
+        return persisted
+      },
+    }
+  )
+)
 
 export const resetStore = () => useStore.setState(initialState)

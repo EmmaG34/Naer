@@ -8,6 +8,8 @@ module.exports = {
     '^expo-router$': '<rootDir>/__mocks__/expo-router.ts',
     '^expo-av$': '<rootDir>/__mocks__/expo-av.ts',
     '^expo-notifications$': '<rootDir>/__mocks__/expo-notifications.ts',
+    '^@react-native-async-storage/async-storage$':
+      '<rootDir>/__mocks__/@react-native-async-storage/async-storage.ts',
   },
   testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
 }
