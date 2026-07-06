@@ -3,20 +3,36 @@
     "name": "Naer",
     "slug": "naer",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "naer",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.naer.app"
+      "bundleIdentifier": "com.naer.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Naer uses the microphone to capture voice notes about your friends.",
+        "NSContactsUsageDescription": "Naer reads your contacts so you can link voice notes to people you know.",
+        "NSCalendarsUsageDescription": "Naer adds follow-up reminders to your calendar."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#272c5e",
         "foregroundImage": "./assets/android-icon-foreground.png"
       },
-      "package": "com.naer.app"
+      "package": "com.naer.app",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_CONTACTS",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -25,6 +41,7 @@
     "plugins": [
       "expo-router",
       "expo-font",
+      "expo-dev-client",
       [
         "expo-av",
         {
@@ -39,8 +56,19 @@
           "iosDisplayInForeground": true,
           "sounds": []
         }
+      ],
+      [
+        "expo-updates",
+        {
+          "handleMissingRuntimeVersion": true
+        }
       ]
     ],
+    "updates": {
+      "url": "https://u.expo.dev/naer",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD"
+    },
     "experiments": {
       "typedRoutes": true
     }

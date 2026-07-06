@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native build outputs
+ios/
+android/
+
+# Environment variables — never commit secrets
+.env
+.env.local
+
+# EAS / Google Play service account key
+google-service-account.json
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Jest
+coverage/
