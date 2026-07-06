@@ -54,3 +54,8 @@ export async function stopPlayback(): Promise<void> {
     activeSound = null
   }
 }
+
+export function resetAudioState(): void {
+  activeRecording = null
+  activeSound = null
+}

@@ -1,7 +1,7 @@
 export interface ParsedFollowUp {
   description: string
   personName: string | null
-  dueDate: string | null // YYYY-MM-DD
+  dueDate: string | null
 }
 
 export interface ParsedInfoUpdate {
@@ -14,9 +14,13 @@ export interface ParsedTranscript {
   infoUpdates: ParsedInfoUpdate[]
 }
 
-export async function parseTranscript(transcript: string): Promise<ParsedTranscript> {
-  // --- Real Claude implementation (uncomment when EXPO_PUBLIC_ANTHROPIC_KEY is set) ---
-  // const res = await fetch('https://api.anthropic.com/v1/messages', {
+// Swap in real Claude once EXPO_PUBLIC_ANTHROPIC_KEY is set in .env
+export async function parseTranscript(
+  transcript: string,
+  fetcher: typeof fetch = fetch
+): Promise<ParsedTranscript> {
+  // --- Real Claude implementation (uncomment when key is ready) ---
+  // const res = await fetcher('https://api.anthropic.com/v1/messages', {
   //   method: 'POST',
   //   headers: {
   //     'x-api-key': process.env.EXPO_PUBLIC_ANTHROPIC_KEY ?? '',
@@ -28,15 +32,16 @@ export async function parseTranscript(transcript: string): Promise<ParsedTranscr
   //     max_tokens: 512,
   //     messages: [{
   //       role: 'user',
-  //       content: `You are a personal relationship assistant. Extract structured info from this voice note transcript.\n\nTranscript: "${transcript}"\n\nReturn ONLY valid JSON (no markdown):\n{\n  "followUps": [{ "description": "short action", "personName": "name or null", "dueDate": "YYYY-MM-DD or null" }],\n  "infoUpdates": [{ "field": "category", "value": "fact" }]\n}\n\nRules:\n- Only add followUps if meeting/calling/reaching out is mentioned\n- Use today + 7 days for \'soon\', today + 14 for unspecified future\n- Only add infoUpdates for concrete facts about a person\n- Keep descriptions under 8 words\n- Return empty arrays if nothing applies`,
+  //       content: `Extract structured info from this voice note transcript.\n\nTranscript: "${transcript}"\n\nReturn ONLY valid JSON (no markdown):\n{\n  "followUps": [{ "description": "short action", "personName": "name or null", "dueDate": "YYYY-MM-DD or null" }],\n  "infoUpdates": [{ "field": "category", "value": "fact" }]\n}\n\nRules: only add followUps if meeting/calling/reaching out is mentioned; use today+7 for 'soon', today+14 for unspecified; only add infoUpdates for concrete facts; descriptions under 8 words; empty arrays if nothing applies`,
   //     }],
   //   }),
   // })
   // const json = await res.json()
-  // try { return JSON.parse(json.content?.[0]?.text ?? '{}') } catch { return { followUps: [], infoUpdates: [] } }
-  // --------------------------------------------------------------------------------------
+  // try { return JSON.parse(json.content?.[0]?.text ?? '{}') }
+  // catch { return { followUps: [], infoUpdates: [] } }
+  // ----------------------------------------------------------------
 
-  // Mock: simulates ~0.8s analysis latency
+  // Mock: ~0.8s simulated latency
   await new Promise((r) => setTimeout(r, 800))
 
   const lower = transcript.toLowerCase()
@@ -54,12 +59,20 @@ export async function parseTranscript(transcript: string): Promise<ParsedTranscr
   const followUps: ParsedFollowUp[] = []
   const infoUpdates: ParsedInfoUpdate[] = []
 
-  if (mentionsCoffee) followUps.push({ description: 'Grab coffee together', personName: null, dueDate: fmt(nextWeek) })
-  else if (mentionsCall) followUps.push({ description: 'Give them a call', personName: null, dueDate: fmt(nextWeek) })
-  else followUps.push({ description: 'Follow up and check in', personName: null, dueDate: fmt(twoWeeks) })
+  if (mentionsCoffee) {
+    followUps.push({ description: 'Grab coffee together', personName: null, dueDate: fmt(nextWeek) })
+  } else if (mentionsCall) {
+    followUps.push({ description: 'Give them a call', personName: null, dueDate: fmt(nextWeek) })
+  } else {
+    followUps.push({ description: 'Follow up and check in', personName: null, dueDate: fmt(twoWeeks) })
+  }
 
-  if (mentionsProject) infoUpdates.push({ field: 'Work update', value: 'New project going well — stressed but excited' })
-  if (mentionsMoved) infoUpdates.push({ field: 'Life update', value: 'Recently moved / moving house' })
+  if (mentionsProject) {
+    infoUpdates.push({ field: 'Work update', value: 'New project going well — stressed but excited' })
+  }
+  if (mentionsMoved) {
+    infoUpdates.push({ field: 'Life update', value: 'Recently moved / moving house' })
+  }
   if (!mentionsProject && !mentionsMoved) {
     infoUpdates.push({ field: 'General note', value: transcript.slice(0, 80).trim() })
   }

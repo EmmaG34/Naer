@@ -35,7 +35,7 @@ export interface FollowUp {
   personId?: string
   personName?: string
   description: string
-  dueDate?: string // YYYY-MM-DD
+  dueDate?: string
   createdAt: Date
   completed: boolean
 }
@@ -66,24 +66,40 @@ interface AppStore {
   setNotificationsEnabled: (val: boolean) => void
 }
 
+const initialState = {
+  currentUser: { name: '', email: 'maya@example.com', avatar: 'M' },
+  toasts: [] as Toast[],
+  sentLog: [] as SentMessage[],
+  captures: [] as Capture[],
+  contactNotes: {} as Record<string, ContactNote[]>,
+  followUps: [] as FollowUp[],
+  favorites: ['1', '2'] as string[],
+  muted: [] as string[],
+  hasOnboarded: false,
+  notificationsEnabled: false,
+}
+
 let toastCounter = 0
 
 export const useStore = create<AppStore>((set) => ({
-  currentUser: { name: '', email: 'maya@example.com', avatar: 'M' },
+  ...initialState,
+
   setCurrentUserName: (name) =>
-    set((s) => ({ currentUser: { ...s.currentUser, name, avatar: name.charAt(0).toUpperCase() || 'M' } })),
-  toasts: [],
+    set((s) => ({
+      currentUser: { ...s.currentUser, name, avatar: name.charAt(0).toUpperCase() || 'M' },
+    })),
+
   showToast: (msg) => {
     const id = String(++toastCounter)
     set((s) => ({ toasts: [...s.toasts, { id, message: msg }] }))
     setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3000)
   },
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-  sentLog: [],
+
   addSentMessage: (msg) => set((s) => ({ sentLog: [msg, ...s.sentLog] })),
-  captures: [],
+
   addCapture: (capture) => set((s) => ({ captures: [capture, ...s.captures] })),
-  contactNotes: {},
+
   addContactNote: (note) =>
     set((s) => ({
       contactNotes: {
@@ -91,24 +107,24 @@ export const useStore = create<AppStore>((set) => ({
         [note.personId]: [note, ...(s.contactNotes[note.personId] ?? [])],
       },
     })),
-  followUps: [],
+
   addFollowUp: (fu) => set((s) => ({ followUps: [fu, ...s.followUps] })),
   completeFollowUp: (id) =>
-    set((s) => ({ followUps: s.followUps.map((f) => f.id === id ? { ...f, completed: true } : f) })),
+    set((s) => ({ followUps: s.followUps.map((f) => (f.id === id ? { ...f, completed: true } : f)) })),
   dismissFollowUp: (id) =>
     set((s) => ({ followUps: s.followUps.filter((f) => f.id !== id) })),
-  favorites: ['1', '2'],
+
   toggleFavorite: (id) =>
     set((s) => ({
       favorites: s.favorites.includes(id) ? s.favorites.filter((f) => f !== id) : [...s.favorites, id],
     })),
-  muted: [],
   toggleMute: (id) =>
     set((s) => ({
       muted: s.muted.includes(id) ? s.muted.filter((m) => m !== id) : [...s.muted, id],
     })),
-  hasOnboarded: false,
+
   setHasOnboarded: (val) => set({ hasOnboarded: val }),
-  notificationsEnabled: false,
   setNotificationsEnabled: (val) => set({ notificationsEnabled: val }),
 }))
+
+export const resetStore = () => useStore.setState(initialState)
