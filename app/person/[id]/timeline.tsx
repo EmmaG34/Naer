@@ -2,7 +2,7 @@ import React from 'react'
 import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft } from 'lucide-react-native'
+import { ArrowLeft, Mic } from 'lucide-react-native'
 import { colors, fonts, shadow } from '../../../constants/tokens'
 import { PEOPLE } from '../../../store/data'
 import { Avatar } from '../../../components/ui/Avatar'
@@ -29,13 +29,18 @@ function mockTimeline(): TimelineEntry[] {
 export default function TimelineScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const insets = useSafeAreaInsets()
-  const { sentLog } = useStore()
+  const { sentLog, contactNotes } = useStore()
 
   const person = PEOPLE.find((p) => p.id === id)
   if (!person) return null
 
   const timeline = mockTimeline()
   const sentMessages = sentLog.filter((s) => s.personId === id)
+  const notes = (contactNotes[id] ?? []).slice().sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+
+  const totalInteractions = timeline.length + sentMessages.length + notes.length
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -52,21 +57,54 @@ export default function TimelineScreen() {
           <Avatar initial={person.initial} size={44} />
           <View>
             <Text style={styles.personName}>{person.name}</Text>
-            <Text style={styles.personSub}>{timeline.length} interactions recorded</Text>
+            <Text style={styles.personSub}>{totalInteractions} interactions recorded</Text>
           </View>
         </View>
 
+        {/* Voice & text notes from captures */}
+        {notes.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Notes from Naer</Text>
+            {notes.map((note, i) => (
+              <View key={note.id} style={styles.timelineRow}>
+                <View style={styles.timelineLeft}>
+                  <View style={[styles.timelineDot, { backgroundColor: colors.fading }]} />
+                  {i < notes.length - 1 && <View style={styles.timelineLine} />}
+                </View>
+                <View style={styles.entryCard}>
+                  {note.uri
+                    ? <Mic size={18} color={colors.accent} />
+                    : <Text style={styles.entryEmoji}>📝</Text>}
+                  <View style={styles.entryContent}>
+                    <Text style={styles.entryDesc}>{note.text}</Text>
+                    <Text style={styles.entryDate}>
+                      {new Date(note.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {note.uri ? '  🎤 voice note' : ''}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Messages sent via Naer */}
         {sentMessages.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Sent via Naer</Text>
-            {sentMessages.map((msg) => (
-              <View key={msg.id} style={styles.entryCard}>
-                <View style={[styles.entryDot, { backgroundColor: colors.accent }]} />
-                <View style={styles.entryContent}>
-                  <Text style={styles.entryDesc}>Sent "{msg.tone}" message</Text>
-                  <Text style={styles.entryDate}>{new Date(msg.sentAt).toLocaleDateString()}</Text>
+            {sentMessages.map((msg, i) => (
+              <View key={msg.id} style={styles.timelineRow}>
+                <View style={styles.timelineLeft}>
+                  <View style={[styles.timelineDot, { backgroundColor: colors.accent }]} />
+                  {i < sentMessages.length - 1 && <View style={styles.timelineLine} />}
                 </View>
-                <Text style={styles.entryEmoji}>💬</Text>
+                <View style={styles.entryCard}>
+                  <Text style={styles.entryEmoji}>💬</Text>
+                  <View style={styles.entryContent}>
+                    <Text style={styles.entryDesc}>Sent “{msg.tone}” message</Text>
+                    <Text style={styles.entryDate}>{new Date(msg.sentAt).toLocaleDateString()}</Text>
+                  </View>
+                </View>
               </View>
             ))}
           </View>
@@ -114,5 +152,4 @@ const styles = StyleSheet.create({
   entryDesc: { fontFamily: fonts.uiMedium, fontSize: 14, color: colors.ink },
   entryDate: { fontFamily: fonts.ui, fontSize: 12, color: colors.muted, marginTop: 2 },
   entryEmoji: { fontSize: 20 },
-  entryDot: { width: 8, height: 8, borderRadius: 4 },
 })

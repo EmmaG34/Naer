@@ -22,6 +22,14 @@ export interface Capture {
   createdAt: Date
 }
 
+export interface ContactNote {
+  id: string
+  personId: string
+  text: string
+  uri?: string
+  createdAt: Date
+}
+
 interface AppStore {
   currentUser: { name: string; email: string; avatar: string }
   setCurrentUserName: (name: string) => void
@@ -32,6 +40,8 @@ interface AppStore {
   addSentMessage: (msg: SentMessage) => void
   captures: Capture[]
   addCapture: (capture: Capture) => void
+  contactNotes: Record<string, ContactNote[]>
+  addContactNote: (note: ContactNote) => void
   favorites: string[]
   toggleFavorite: (id: string) => void
   muted: string[]
@@ -43,7 +53,6 @@ interface AppStore {
 }
 
 let toastCounter = 0
-let captureCounter = 0
 
 export const useStore = create<AppStore>((set) => ({
   currentUser: {
@@ -77,6 +86,15 @@ export const useStore = create<AppStore>((set) => ({
   captures: [],
   addCapture: (capture: Capture) => {
     set((state) => ({ captures: [capture, ...state.captures] }))
+  },
+  contactNotes: {},
+  addContactNote: (note: ContactNote) => {
+    set((state) => ({
+      contactNotes: {
+        ...state.contactNotes,
+        [note.personId]: [note, ...(state.contactNotes[note.personId] ?? [])],
+      },
+    }))
   },
   favorites: ['1', '2'],
   toggleFavorite: (id: string) => {

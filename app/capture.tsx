@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View,
   Text,
@@ -7,13 +7,16 @@ import {
   TextInput,
   Alert,
   Animated,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { X, Mic, Type, Play, Square, RotateCcw } from 'lucide-react-native'
+import { X, Mic, Type, Play, Square, RotateCcw, Check } from 'lucide-react-native'
 import { Audio } from 'expo-av'
 import { colors, fonts, shadow } from '../constants/tokens'
 import { useStore } from '../store/useStore'
+import { PEOPLE } from '../store/data'
 import {
   requestAudioPermissions,
   startRecording,
@@ -21,6 +24,7 @@ import {
   playAudio,
   stopPlayback,
 } from '../utils/audio'
+import { transcribeAudio } from '../utils/transcribe'
 
 const BAR_COUNT = 28
 
@@ -34,9 +38,7 @@ function useWaveform(active: boolean) {
       bars.forEach((b) => Animated.spring(b, { toValue: 0.2, useNativeDriver: false }).start())
       return
     }
-
     let cancelled = false
-
     const pulse = () => {
       if (cancelled) return
       bars.forEach((bar) => {
@@ -48,7 +50,6 @@ function useWaveform(active: boolean) {
       })
       setTimeout(pulse, 150)
     }
-
     pulse()
     return () => { cancelled = true }
   }, [active, bars])
@@ -56,7 +57,7 @@ function useWaveform(active: boolean) {
   return bars
 }
 
-type RecordPhase = 'idle' | 'recording' | 'stopped'
+type RecordPhase = 'idle' | 'recording' | 'transcribing' | 'review'
 
 export default function CaptureScreen() {
   const insets = useSafeAreaInsets()
@@ -64,12 +65,13 @@ export default function CaptureScreen() {
   const [text, setText] = useState('')
   const [phase, setPhase] = useState<RecordPhase>('idle')
   const [recordingUri, setRecordingUri] = useState<string | null>(null)
+  const [transcript, setTranscript] = useState('')
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [note, setNote] = useState('')
   const [elapsed, setElapsed] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const soundRef = useRef<Audio.Sound | null>(null)
-  const { showToast, addCapture } = useStore()
+  const { showToast, addCapture, addContactNote } = useStore()
 
   const waveformBars = useWaveform(phase === 'recording')
 
@@ -112,9 +114,12 @@ export default function CaptureScreen() {
     try {
       const uri = await stopRecording()
       setRecordingUri(uri)
-      setPhase('stopped')
+      setPhase('transcribing')
+      const result = await transcribeAudio(uri ?? '')
+      setTranscript(result)
+      setPhase('review')
     } catch {
-      showToast('Recording error — please try again')
+      showToast('Could not transcribe — please try again')
       setPhase('idle')
     }
   }
@@ -138,7 +143,6 @@ export default function CaptureScreen() {
       })
     } catch {
       setIsPlaying(false)
-      showToast('Could not play recording')
     }
   }
 
@@ -146,21 +150,37 @@ export default function CaptureScreen() {
     await stopPlayback()
     setIsPlaying(false)
     setRecordingUri(null)
-    setNote('')
+    setTranscript('')
+    setSelectedPersonId(null)
     setElapsed(0)
     setPhase('idle')
   }
 
   const handleSaveVoice = () => {
-    if (!recordingUri) return
+    if (!transcript.trim()) return
+    const noteId = String(Date.now())
+
     addCapture({
-      id: String(Date.now()),
+      id: noteId,
       type: 'voice',
-      content: note.trim() || '(voice note)',
-      uri: recordingUri,
+      content: transcript.trim(),
+      uri: recordingUri ?? undefined,
       createdAt: new Date(),
     })
-    showToast('Voice note saved!')
+
+    if (selectedPersonId) {
+      addContactNote({
+        id: noteId,
+        personId: selectedPersonId,
+        text: transcript.trim(),
+        uri: recordingUri ?? undefined,
+        createdAt: new Date(),
+      })
+      const person = PEOPLE.find((p) => p.id === selectedPersonId)
+      showToast(`Note saved to ${person?.first ?? 'contact'}`)
+    } else {
+      showToast('Note saved')
+    }
     router.back()
   }
 
@@ -189,16 +209,19 @@ export default function CaptureScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <View style={styles.modeRow}>
-        <Pressable onPress={() => setMode('voice')} style={[styles.modeBtn, mode === 'voice' && styles.modeBtnActive]}>
-          <Mic size={16} color={mode === 'voice' ? '#fff' : colors.muted} />
-          <Text style={[styles.modeBtnText, mode === 'voice' && styles.modeBtnTextActive]}>Voice</Text>
-        </Pressable>
-        <Pressable onPress={() => setMode('text')} style={[styles.modeBtn, mode === 'text' && styles.modeBtnActive]}>
-          <Type size={16} color={mode === 'text' ? '#fff' : colors.muted} />
-          <Text style={[styles.modeBtnText, mode === 'text' && styles.modeBtnTextActive]}>Text</Text>
-        </Pressable>
-      </View>
+      {/* Mode toggle — hidden while transcribing/reviewing */}
+      {phase === 'idle' || mode === 'text' ? (
+        <View style={styles.modeRow}>
+          <Pressable onPress={() => setMode('voice')} style={[styles.modeBtn, mode === 'voice' && styles.modeBtnActive]}>
+            <Mic size={16} color={mode === 'voice' ? '#fff' : colors.muted} />
+            <Text style={[styles.modeBtnText, mode === 'voice' && styles.modeBtnTextActive]}>Voice</Text>
+          </Pressable>
+          <Pressable onPress={() => setMode('text')} style={[styles.modeBtn, mode === 'text' && styles.modeBtnActive]}>
+            <Type size={16} color={mode === 'text' ? '#fff' : colors.muted} />
+            <Text style={[styles.modeBtnText, mode === 'text' && styles.modeBtnTextActive]}>Text</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={styles.body}>
         {mode === 'text' ? (
@@ -223,40 +246,45 @@ export default function CaptureScreen() {
           </>
         ) : (
           <View style={styles.voiceArea}>
-            {/* Waveform */}
-            <View style={styles.waveformWrap}>
-              {waveformBars.map((bar, i) => (
-                <Animated.View
-                  key={i}
-                  style={[
-                    styles.waveBar,
-                    {
-                      height: bar.interpolate({ inputRange: [0, 1], outputRange: [4, 52] }),
-                      backgroundColor: phase === 'recording' ? colors.accent : colors.accent2,
-                      opacity: phase === 'idle' ? 0.25 : 1,
-                    },
-                  ]}
-                />
-              ))}
-            </View>
+
+            {/* Waveform — shown during idle + recording */}
+            {(phase === 'idle' || phase === 'recording') && (
+              <View style={styles.waveformWrap}>
+                {waveformBars.map((bar, i) => (
+                  <Animated.View
+                    key={i}
+                    style={[
+                      styles.waveBar,
+                      {
+                        height: bar.interpolate({ inputRange: [0, 1], outputRange: [4, 52] }),
+                        backgroundColor: phase === 'recording' ? colors.accent : colors.accent2,
+                        opacity: phase === 'idle' ? 0.25 : 1,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
 
             {/* Timer */}
-            {phase !== 'idle' && (
-              <Text style={[styles.timer, phase === 'recording' && styles.timerRecording]}>
-                {formatTime(elapsed)}
-              </Text>
+            {(phase === 'recording') && (
+              <Text style={styles.timerRecording}>{formatTime(elapsed)}</Text>
             )}
 
-            {/* Record button */}
+            {/* Idle: mic button */}
             {phase === 'idle' && (
-              <Pressable
-                onPress={handleStartRecording}
-                style={({ pressed }) => [styles.recordBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}
-              >
-                <Mic size={36} color="#fff" />
-              </Pressable>
+              <>
+                <Pressable
+                  onPress={handleStartRecording}
+                  style={({ pressed }) => [styles.recordBtn, pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}
+                >
+                  <Mic size={36} color="#fff" />
+                </Pressable>
+                <Text style={styles.recordHint}>Tap to start recording</Text>
+              </>
             )}
 
+            {/* Recording: stop button */}
             {phase === 'recording' && (
               <Pressable
                 onPress={handleStopRecording}
@@ -266,41 +294,101 @@ export default function CaptureScreen() {
               </Pressable>
             )}
 
-            {/* Post-recording controls */}
-            {phase === 'stopped' && recordingUri && (
-              <View style={styles.postRecord}>
-                <View style={styles.playRow}>
-                  <Pressable onPress={handlePlayback} style={styles.playBtn}>
-                    {isPlaying
-                      ? <Square size={20} color="#fff" fill="#fff" />
-                      : <Play size={20} color="#fff" fill="#fff" />}
-                  </Pressable>
-                  <Text style={styles.playLabel}>{isPlaying ? 'Playing...' : 'Preview recording'}</Text>
-                  <Pressable onPress={handleReset} style={styles.retakeBtn}>
-                    <RotateCcw size={16} color={colors.muted} />
-                    <Text style={styles.retakeText}>Retake</Text>
-                  </Pressable>
-                </View>
-
-                <TextInput
-                  value={note}
-                  onChangeText={setNote}
-                  placeholder="Add a note (optional)"
-                  placeholderTextColor={colors.muted}
-                  style={styles.noteInput}
-                />
-
-                <Pressable
-                  onPress={handleSaveVoice}
-                  style={({ pressed }) => [styles.saveBtn, pressed && { opacity: 0.8 }]}
-                >
-                  <Text style={styles.saveBtnText}>Save voice note</Text>
-                </Pressable>
+            {/* Transcribing: spinner */}
+            {phase === 'transcribing' && (
+              <View style={styles.transcribingWrap}>
+                <ActivityIndicator size="large" color={colors.accent2} />
+                <Text style={styles.transcribingText}>Transcribing…</Text>
+                <Text style={styles.transcribingSub}>This only takes a moment</Text>
               </View>
             )}
 
-            {phase === 'idle' && (
-              <Text style={styles.recordHint}>Tap to start recording</Text>
+            {/* Review: editable transcript + contact picker */}
+            {phase === 'review' && (
+              <ScrollView
+                style={styles.reviewScroll}
+                contentContainerStyle={styles.reviewContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {/* Playback row */}
+                <Pressable
+                  onPress={handlePlayback}
+                  style={({ pressed }) => [styles.playRow, pressed && { opacity: 0.8 }]}
+                >
+                  <View style={styles.playBtn}>
+                    {isPlaying
+                      ? <Square size={16} color="#fff" fill="#fff" />
+                      : <Play size={16} color="#fff" fill="#fff" />}
+                  </View>
+                  <Text style={styles.playLabel}>{isPlaying ? 'Playing…' : 'Play recording'}</Text>
+                  <Pressable onPress={handleReset} style={styles.retakeBtn}>
+                    <RotateCcw size={14} color={colors.muted} />
+                    <Text style={styles.retakeText}>Retake</Text>
+                  </Pressable>
+                </Pressable>
+
+                {/* Editable transcript */}
+                <Text style={styles.reviewLabel}>TRANSCRIPT</Text>
+                <TextInput
+                  value={transcript}
+                  onChangeText={setTranscript}
+                  style={styles.transcriptInput}
+                  multiline
+                  textAlignVertical="top"
+                  placeholderTextColor={colors.muted}
+                />
+
+                {/* Contact picker */}
+                <Text style={styles.reviewLabel}>WHO IS THIS ABOUT?</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.contactScroll}
+                  contentContainerStyle={{ paddingRight: 8 }}
+                >
+                  {PEOPLE.map((person) => {
+                    const selected = selectedPersonId === person.id
+                    return (
+                      <Pressable
+                        key={person.id}
+                        onPress={() => setSelectedPersonId(selected ? null : person.id)}
+                        style={styles.contactChip}
+                      >
+                        <View style={[
+                          styles.contactAvatar,
+                          selected && styles.contactAvatarSelected,
+                        ]}>
+                          <Text style={styles.contactInitial}>{person.initial}</Text>
+                          {selected && (
+                            <View style={styles.contactCheck}>
+                              <Check size={10} color="#fff" />
+                            </View>
+                          )}
+                        </View>
+                        <Text style={[
+                          styles.contactName,
+                          selected && styles.contactNameSelected,
+                        ]}>
+                          {person.first}
+                        </Text>
+                      </Pressable>
+                    )
+                  })}
+                </ScrollView>
+
+                <Pressable
+                  onPress={handleSaveVoice}
+                  style={({ pressed }) => [styles.saveBtn, !transcript.trim() && styles.saveBtnDisabled, pressed && { opacity: 0.8 }]}
+                  disabled={!transcript.trim()}
+                >
+                  <Text style={styles.saveBtnText}>
+                    {selectedPersonId
+                      ? `Save to ${PEOPLE.find((p) => p.id === selectedPersonId)?.first}`
+                      : 'Save note'}
+                  </Text>
+                </Pressable>
+              </ScrollView>
             )}
           </View>
         )}
@@ -321,22 +409,34 @@ const styles = StyleSheet.create({
   modeBtnTextActive: { color: '#fff' },
   body: { flex: 1, paddingHorizontal: 20 },
   input: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 16, fontFamily: fonts.ui, fontSize: 15, color: colors.ink, marginBottom: 16, ...shadow.small },
-  saveBtn: { backgroundColor: colors.accent, borderRadius: 16, paddingVertical: 16, alignItems: 'center' },
+  saveBtn: { backgroundColor: colors.accent, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { fontFamily: fonts.uiSemiBold, fontSize: 16, color: '#fff' },
-  voiceArea: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 28, width: '100%' },
-  waveformWrap: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 60, paddingHorizontal: 8 },
+  voiceArea: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  waveformWrap: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 60, paddingHorizontal: 8, marginBottom: 28 },
   waveBar: { width: 5, borderRadius: 3 },
-  timer: { fontFamily: fonts.display, fontSize: 32, color: colors.muted, letterSpacing: 2 },
-  timerRecording: { color: colors.accent },
-  recordBtn: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.accent2, alignItems: 'center', justifyContent: 'center', ...shadow.card },
+  timerRecording: { fontFamily: fonts.display, fontSize: 32, color: colors.accent, letterSpacing: 2, marginBottom: 28 },
+  recordBtn: { width: 96, height: 96, borderRadius: 48, backgroundColor: colors.accent2, alignItems: 'center', justifyContent: 'center', ...shadow.card, marginBottom: 20 },
   recordBtnActive: { backgroundColor: colors.accent },
   recordHint: { fontFamily: fonts.ui, fontSize: 15, color: colors.muted },
-  postRecord: { width: '100%', gap: 12 },
-  playRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14, padding: 14, gap: 12, ...shadow.small },
-  playBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.accent2, alignItems: 'center', justifyContent: 'center' },
+  transcribingWrap: { alignItems: 'center', gap: 16 },
+  transcribingText: { fontFamily: fonts.display, fontSize: 22, color: colors.ink },
+  transcribingSub: { fontFamily: fonts.ui, fontSize: 14, color: colors.muted },
+  reviewScroll: { width: '100%' },
+  reviewContent: { paddingBottom: 20, gap: 0 },
+  playRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 14, padding: 14, gap: 12, ...shadow.small, marginBottom: 20 },
+  playBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.accent2, alignItems: 'center', justifyContent: 'center' },
   playLabel: { flex: 1, fontFamily: fonts.uiMedium, fontSize: 14, color: colors.ink },
   retakeBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   retakeText: { fontFamily: fonts.ui, fontSize: 13, color: colors.muted },
-  noteInput: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, fontFamily: fonts.ui, fontSize: 14, color: colors.ink, ...shadow.small },
+  reviewLabel: { fontFamily: fonts.uiSemiBold, fontSize: 11, color: colors.muted, letterSpacing: 0.8, marginBottom: 8, marginTop: 4 },
+  transcriptInput: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, fontFamily: fonts.ui, fontSize: 15, color: colors.ink, minHeight: 100, ...shadow.small, marginBottom: 20 },
+  contactScroll: { marginBottom: 20, marginHorizontal: -20 },
+  contactChip: { alignItems: 'center', marginLeft: 20, gap: 6, width: 56 },
+  contactAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.accent2Soft, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent' },
+  contactAvatarSelected: { borderColor: colors.accent2, backgroundColor: colors.accent2 },
+  contactInitial: { fontFamily: fonts.display, fontSize: 18, color: colors.accent2 },
+  contactCheck: { position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, backgroundColor: colors.good, alignItems: 'center', justifyContent: 'center' },
+  contactName: { fontFamily: fonts.ui, fontSize: 11, color: colors.muted, textAlign: 'center' },
+  contactNameSelected: { color: colors.accent2, fontFamily: fonts.uiMedium },
 })
