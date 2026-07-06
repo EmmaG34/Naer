@@ -30,6 +30,16 @@ export interface ContactNote {
   createdAt: Date
 }
 
+export interface FollowUp {
+  id: string
+  personId?: string
+  personName?: string
+  description: string
+  dueDate?: string // YYYY-MM-DD
+  createdAt: Date
+  completed: boolean
+}
+
 interface AppStore {
   currentUser: { name: string; email: string; avatar: string }
   setCurrentUserName: (name: string) => void
@@ -42,6 +52,10 @@ interface AppStore {
   addCapture: (capture: Capture) => void
   contactNotes: Record<string, ContactNote[]>
   addContactNote: (note: ContactNote) => void
+  followUps: FollowUp[]
+  addFollowUp: (fu: FollowUp) => void
+  completeFollowUp: (id: string) => void
+  dismissFollowUp: (id: string) => void
   favorites: string[]
   toggleFavorite: (id: string) => void
   muted: string[]
@@ -55,65 +69,46 @@ interface AppStore {
 let toastCounter = 0
 
 export const useStore = create<AppStore>((set) => ({
-  currentUser: {
-    name: '',
-    email: 'maya@example.com',
-    avatar: 'M',
+  currentUser: { name: '', email: 'maya@example.com', avatar: 'M' },
+  setCurrentUserName: (name) =>
+    set((s) => ({ currentUser: { ...s.currentUser, name, avatar: name.charAt(0).toUpperCase() || 'M' } })),
+  toasts: [],
+  showToast: (msg) => {
+    const id = String(++toastCounter)
+    set((s) => ({ toasts: [...s.toasts, { id, message: msg }] }))
+    setTimeout(() => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })), 3000)
   },
-  setCurrentUserName: (name: string) =>
-    set((state) => ({
-      currentUser: {
-        ...state.currentUser,
-        name,
-        avatar: name.charAt(0).toUpperCase() || 'M',
+  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  sentLog: [],
+  addSentMessage: (msg) => set((s) => ({ sentLog: [msg, ...s.sentLog] })),
+  captures: [],
+  addCapture: (capture) => set((s) => ({ captures: [capture, ...s.captures] })),
+  contactNotes: {},
+  addContactNote: (note) =>
+    set((s) => ({
+      contactNotes: {
+        ...s.contactNotes,
+        [note.personId]: [note, ...(s.contactNotes[note.personId] ?? [])],
       },
     })),
-  toasts: [],
-  showToast: (msg: string) => {
-    const id = String(++toastCounter)
-    set((state) => ({ toasts: [...state.toasts, { id, message: msg }] }))
-    setTimeout(() => {
-      set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }))
-    }, 3000)
-  },
-  dismissToast: (id: string) => {
-    set((state) => ({ toasts: state.toasts.filter((t) => t.id !== id) }))
-  },
-  sentLog: [],
-  addSentMessage: (msg: SentMessage) => {
-    set((state) => ({ sentLog: [msg, ...state.sentLog] }))
-  },
-  captures: [],
-  addCapture: (capture: Capture) => {
-    set((state) => ({ captures: [capture, ...state.captures] }))
-  },
-  contactNotes: {},
-  addContactNote: (note: ContactNote) => {
-    set((state) => ({
-      contactNotes: {
-        ...state.contactNotes,
-        [note.personId]: [note, ...(state.contactNotes[note.personId] ?? [])],
-      },
-    }))
-  },
+  followUps: [],
+  addFollowUp: (fu) => set((s) => ({ followUps: [fu, ...s.followUps] })),
+  completeFollowUp: (id) =>
+    set((s) => ({ followUps: s.followUps.map((f) => f.id === id ? { ...f, completed: true } : f) })),
+  dismissFollowUp: (id) =>
+    set((s) => ({ followUps: s.followUps.filter((f) => f.id !== id) })),
   favorites: ['1', '2'],
-  toggleFavorite: (id: string) => {
-    set((state) => ({
-      favorites: state.favorites.includes(id)
-        ? state.favorites.filter((f) => f !== id)
-        : [...state.favorites, id],
-    }))
-  },
+  toggleFavorite: (id) =>
+    set((s) => ({
+      favorites: s.favorites.includes(id) ? s.favorites.filter((f) => f !== id) : [...s.favorites, id],
+    })),
   muted: [],
-  toggleMute: (id: string) => {
-    set((state) => ({
-      muted: state.muted.includes(id)
-        ? state.muted.filter((m) => m !== id)
-        : [...state.muted, id],
-    }))
-  },
+  toggleMute: (id) =>
+    set((s) => ({
+      muted: s.muted.includes(id) ? s.muted.filter((m) => m !== id) : [...s.muted, id],
+    })),
   hasOnboarded: false,
-  setHasOnboarded: (val: boolean) => set({ hasOnboarded: val }),
+  setHasOnboarded: (val) => set({ hasOnboarded: val }),
   notificationsEnabled: false,
-  setNotificationsEnabled: (val: boolean) => set({ notificationsEnabled: val }),
+  setNotificationsEnabled: (val) => set({ notificationsEnabled: val }),
 }))
