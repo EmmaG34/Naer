@@ -3,9 +3,6 @@
     "name": "Naer",
     "slug": "naer",
     "version": "1.0.0",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -47,19 +44,8 @@
           "iosDisplayInForeground": true,
           "sounds": []
         }
-      ],
-      [
-        "expo-updates",
-        {
-          "handleMissingRuntimeVersion": true
-        }
       ]
     ],
-    "updates": {
-      "url": "https://u.expo.dev/naer",
-      "enabled": true,
-      "checkAutomatically": "ON_LOAD"
-    },
     "experiments": {
       "typedRoutes": true
     }
