@@ -1,0 +1,8 @@
+# Never commit raw finance data (customer names, balances, bank details).
+data/
+*.xlsx
+*.xls
+*.csv
+!templates/*.csv
+.env
+*.bak
